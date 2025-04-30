@@ -3,12 +3,13 @@ import requests
 import json
 import os
 from dotenv import load_dotenv
-import openai
+from openai import OpenAI
 import re
 
 # Load environment variables
 load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
+openai_api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=openai_api_key)
 
 st.set_page_config(page_title="Geometry Chatbot", page_icon="📐", layout="wide")
 
@@ -64,8 +65,8 @@ def determine_calculation(query, length, width):
         Just return the single word answer without explanation.
         """
         
-        # Call the OpenAI API
-        response = openai.chat.completions.create(
+        # Call the OpenAI API using the client
+        response = client.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
@@ -227,7 +228,7 @@ if prompt := st.chat_input("Ask me about rectangle calculations..."):
         with st.spinner("Thinking..."):
             if calc_type == "none":
                 # Just have a conversation without calculation
-                response = openai.chat.completions.create(
+                response = client.chat.completions.create(
                     model="gpt-4o",
                     messages=[
                         {"role": "system", "content": "You are a helpful geometry assistant that specializes in rectangles. Keep responses brief and friendly."},
