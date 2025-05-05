@@ -1,0 +1,4 @@
+{
+  "name": "geometry_host_agent",
+  "description": "Host agent for orchestrating geometry calculations."
+} 
