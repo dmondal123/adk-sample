@@ -1,7 +1,7 @@
 from google.adk.agents import Agent
 from google.adk.models.lite_llm import LiteLlm
 from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
+from google.adk.sessions import DatabaseSessionService
 from google.genai import types
 import json
 import os
@@ -11,6 +11,9 @@ from dotenv import load_dotenv
 load_dotenv()
 os.environ['OPENAI_API_KEY'] = os.environ.get('OPENAI_API_KEY')
 MODEL_GPT_4O = "openai/gpt-4o"
+
+# Ensure the directory exists
+os.makedirs("./db", exist_ok=True)
 
 # Define the calculate_area tool
 def calculate_area(length: float, width: float) -> dict:
@@ -44,7 +47,9 @@ area_agent = Agent(
 )
 
 # Setup session service and runner
-session_service = InMemorySessionService()
+db_url = "sqlite:///./db/area_agent_sessions.db"
+session_service = DatabaseSessionService(db_url=db_url)
+
 runner = Runner(
     agent=area_agent,
     app_name="area_app",
@@ -55,11 +60,16 @@ USER_ID = "user_area"
 SESSION_ID = "session_area"
 
 async def execute(request):
-    session_service.create_session(
-        app_name="area_app",
-        user_id=USER_ID,
-        session_id=SESSION_ID
-    )
+    # Ensure session exists
+    try:
+        session_service.create_session(
+            app_name="area_app",
+            user_id=USER_ID,
+            session_id=SESSION_ID
+        )
+    except Exception as e:
+        # Session might already exist, which is fine
+        print(f"Note: {e}")
 
     # Extract rectangle dimensions from request
     length = request.get('length', 0)

@@ -1,22 +1,90 @@
 import streamlit as st
 import requests
 import re
+import sqlite3
+import json
+import uuid
+import os
 
+# Ensure the db directory exists
+os.makedirs("./db", exist_ok=True)
+
+# Function to get or create a user ID
+def get_user_id():
+    if "user_id" not in st.session_state:
+        # Generate a unique user ID if not already present
+        st.session_state.user_id = str(uuid.uuid4())
+    return st.session_state.user_id
+
+# Function to load chat history from SQLite
+def load_chat_history(user_id):
+    conn = sqlite3.connect("./db/ui_sessions.db")
+    cursor = conn.cursor()
+    
+    # Create table if it doesn't exist
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS chat_history (
+        user_id TEXT PRIMARY KEY,
+        messages TEXT,
+        length REAL,
+        width REAL
+    )
+    ''')
+    
+    # Try to load existing history
+    cursor.execute("SELECT messages, length, width FROM chat_history WHERE user_id = ?", (user_id,))
+    result = cursor.fetchone()
+    
+    if result:
+        messages = json.loads(result[0])
+        length = result[1]
+        width = result[2]
+    else:
+        # Default values for new users
+        messages = [
+            {"role": "assistant", "content": "Hello! I'm your geometry assistant. I can help you calculate the area and perimeter of rectangles. Just tell me the dimensions (e.g., 'Calculate the area of a rectangle with length 5 and width 3')."}
+        ]
+        length = 5.0
+        width = 3.0
+        
+        # Insert default values
+        cursor.execute(
+            "INSERT INTO chat_history (user_id, messages, length, width) VALUES (?, ?, ?, ?)",
+            (user_id, json.dumps(messages), length, width)
+        )
+        conn.commit()
+    
+    conn.close()
+    return messages, length, width
+
+# Function to save chat history to SQLite
+def save_chat_history(user_id, messages, length, width):
+    conn = sqlite3.connect("./db/ui_sessions.db")
+    cursor = conn.cursor()
+    
+    cursor.execute(
+        "UPDATE chat_history SET messages = ?, length = ?, width = ? WHERE user_id = ?",
+        (json.dumps(messages), length, width, user_id)
+    )
+    
+    conn.commit()
+    conn.close()
+
+# Set up the Streamlit page
 st.set_page_config(page_title="ADK-Powered Geometry Calculator", page_icon="📐")
-
 st.title("📐 ADK-Powered Geometry Calculator")
 
-# Initialize chat history
-if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "assistant", "content": "Hello! I'm your geometry assistant. I can help you calculate the area and perimeter of rectangles. Just tell me the dimensions (e.g., 'Calculate the area of a rectangle with length 5 and width 3')."}
-    ]
+# Get user ID and load session data
+user_id = get_user_id()
+messages, length, width = load_chat_history(user_id)
 
-# Initialize default dimensions
+# Initialize session state with loaded values
+if "messages" not in st.session_state:
+    st.session_state.messages = messages
 if "length" not in st.session_state:
-    st.session_state.length = 5.0
+    st.session_state.length = length
 if "width" not in st.session_state:
-    st.session_state.width = 3.0
+    st.session_state.width = width
 
 # Function to extract dimensions from message
 def extract_dimensions(message):
@@ -57,15 +125,15 @@ with st.sidebar:
     st.subheader("Service Information")
     st.info("""
     Make sure the following services are running:
-    - Area Agent: http://localhost:8001
-    - Perimeter Agent: http://localhost:8002
-    - Geometry Host Agent: http://localhost:8000
+    - Area Agent: http://localhost:8004
+    - Perimeter Agent: http://localhost:8005
+    - Geometry Host Agent: http://localhost:8006
     """)
     
-    # Display current dimensions
-    st.subheader("Current Dimensions")
-    st.write(f"Length: {st.session_state.length}")
-    st.write(f"Width: {st.session_state.width}")
+    
+    # Display user ID (for debugging)
+    st.subheader("Session Information")
+    st.write(f"User ID: {user_id}")
 
 # Chat input
 if prompt := st.chat_input("Ask me about rectangle calculations..."):
@@ -162,3 +230,11 @@ if prompt := st.chat_input("Ask me about rectangle calculations..."):
     
     # Add assistant response to chat history
     st.session_state.messages.append({"role": "assistant", "content": assistant_response})
+    
+    # Save the updated state to the database
+    save_chat_history(
+        user_id, 
+        st.session_state.messages, 
+        st.session_state.length, 
+        st.session_state.width
+    )

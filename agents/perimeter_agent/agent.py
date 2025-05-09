@@ -1,7 +1,7 @@
 from google.adk.agents import Agent
 from google.adk.models.lite_llm import LiteLlm
 from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
+from google.adk.sessions import DatabaseSessionService
 from google.genai import types
 import json
 import os
@@ -11,6 +11,9 @@ from dotenv import load_dotenv
 load_dotenv()
 os.environ['OPENAI_API_KEY'] = os.environ.get('OPENAI_API_KEY')
 MODEL_GPT_4O = "openai/gpt-4o"
+
+# Ensure the directory exists
+os.makedirs("./db", exist_ok=True)
 
 # Define the calculate_perimeter tool
 def calculate_perimeter(length: float, width: float) -> dict:
@@ -44,7 +47,9 @@ perimeter_agent = Agent(
 )
 
 # Setup session service and runner
-session_service = InMemorySessionService()
+db_url = "sqlite:///./db/perimeter_agent_sessions.db"
+session_service = DatabaseSessionService(db_url=db_url)
+
 runner = Runner(
     agent=perimeter_agent,
     app_name="perimeter_app",
@@ -55,11 +60,16 @@ USER_ID = "user_perimeter"
 SESSION_ID = "session_perimeter"
 
 async def execute(request):
-    session_service.create_session(
-        app_name="perimeter_app",
-        user_id=USER_ID,
-        session_id=SESSION_ID
-    )
+    # Ensure session exists
+    try:
+        session_service.create_session(
+            app_name="perimeter_app",
+            user_id=USER_ID,
+            session_id=SESSION_ID
+        )
+    except Exception as e:
+        # Session might already exist, which is fine
+        print(f"Note: {e}")
 
     # Extract rectangle dimensions from request
     length = request.get('length', 0)
@@ -74,6 +84,7 @@ async def execute(request):
             response_text = event.content.parts[0].text
             try:
                 # Try to extract perimeter calculation from response
+                # This is a simple approach - you might need more sophisticated parsing
                 return {"result": response_text, "raw_response": response_text}
             except Exception as e:
                 print(f"❌ Error processing response: {e}")

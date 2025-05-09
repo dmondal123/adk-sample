@@ -1,10 +1,14 @@
 from google.adk.agents import Agent
 from google.adk.models.lite_llm import LiteLlm
 from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
+from google.adk.sessions import DatabaseSessionService
 from google.genai import types
 from area_agent.agent import area_agent
 from perimeter_agent.agent import perimeter_agent
+import os
+
+# Ensure the directory exists
+os.makedirs("./db", exist_ok=True)
 
 geometry_host_agent = Agent(
     name="geometry_host_agent",
@@ -19,7 +23,11 @@ geometry_host_agent = Agent(
     sub_agents=[area_agent, perimeter_agent]            
 )
 
-session_service = InMemorySessionService()
+# Use the built-in DatabaseSessionService with SQLite
+# The db_url is just a connection string - the file will be created if it doesn't exist
+db_url = "sqlite:///./db/geometry_host_sessions.db"
+session_service = DatabaseSessionService(db_url=db_url)
+
 runner = Runner(
     agent=geometry_host_agent,
     app_name="geometry_host_app",
@@ -31,11 +39,15 @@ SESSION_ID = "session_geometry_host"
 
 async def execute(request):
     # Ensure session exists
-    session_service.create_session(
-        app_name="geometry_host_app",
-        user_id=USER_ID,
-        session_id=SESSION_ID
-    )
+    try:
+        session_service.create_session(
+            app_name="geometry_host_app",
+            user_id=USER_ID,
+            session_id=SESSION_ID
+        )
+    except Exception as e:
+        # Session might already exist, which is fine
+        print(f"Note: {e}")
 
     # Extract the original request text to preserve the user's intent
     request_text = request.get('request', '')
