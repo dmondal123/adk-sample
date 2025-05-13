@@ -9,7 +9,7 @@ MODEL_GPT_4O = "openai/gpt-4o"
 # Code Writer Agent
 code_writer_agent = LlmAgent(
     name="code_writer_agent",
-    model = LiteLlm(model=MODEL_GPT_4O),
+    model = LiteLlm(model=MODEL_GPT_4O, api_key=os.environ.get('OPENAI_API_KEY')),
     instruction="""You are a Code Writer AI.
     Based on the user's request, write the initial Python code.
     Output *only* the raw code block.
