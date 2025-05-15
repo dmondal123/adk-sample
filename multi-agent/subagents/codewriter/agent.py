@@ -1,6 +1,8 @@
 from google.adk.agents.llm_agent import LlmAgent
 from typing import Any, Dict, List, Optional, Sequence
 from google.adk.models.lite_llm import LiteLlm
+from ...callbacks import skip_completed_agent
+
 import os
 from dotenv import load_dotenv
 load_dotenv()
@@ -18,4 +20,5 @@ code_writer_agent = LlmAgent(
     # Stores its output (the generated code) into the session state
     # under the key 'generated_code'.
     output_key="generated_code",
+    before_agent_callback=skip_completed_agent,
 )

@@ -1,6 +1,7 @@
 from google.adk.agents.llm_agent import LlmAgent
 from typing import Any, Dict, List, Optional, Sequence
 from google.adk.models.lite_llm import LiteLlm
+from ...callbacks import skip_completed_agent
 import os
 from dotenv import load_dotenv
 load_dotenv()
@@ -32,4 +33,5 @@ Output *only* the final, refactored code block.
     # Stores its output (the refactored code) into the session state
     # under the key 'refactored_code'.
     output_key="refactored_code",
+    before_agent_callback=skip_completed_agent,
 )
