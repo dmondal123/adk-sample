@@ -58,21 +58,22 @@ def skip_completed_agent(callback_context: CallbackContext) -> Optional[types.Co
         print(f"[skip_completed_agent] CallbackContext attributes: {attrs}")
         _ALREADY_DUMPED_CTX_ATTRS = True
 
-    # 2) Locate the session-state mapping – try all known places
-    state = None
-    for attr in ("state", "_state", "session_state"):
-        candidate = getattr(callback_context, attr, None)
-        state = _to_mapping(candidate)
-        if state is not None:
-            break
-    # New fallback: some ADK versions expose it via callback_context.session.state
-    if state is None:
-        session = getattr(callback_context, "session", None)
-        if session is not None:
-            state = _to_mapping(getattr(session, "state", None))
-
     # Define agent_name earlier, before its first potential use in printing
     agent_name: Optional[str] = getattr(callback_context, "agent_name", None)
+    print(f"\n[skip_completed_agent] Checking state for agent: {agent_name}")
+
+    # 2) Locate the session-state mapping – try all known places
+    state = None
+    
+    # Try to get state through invocation context first (more reliable)
+    invocation_context = getattr(callback_context, "_invocation_context", None)
+    if invocation_context:
+        session = getattr(invocation_context, "session", None)
+        if session:
+            state = _to_mapping(getattr(session, "state", None))
+            if state:
+                print(f"[skip_completed_agent] State found via _invocation_context.session.state")
+
 
     print(f"[skip_completed_agent] State for {agent_name}: {state}")
     if state is None:

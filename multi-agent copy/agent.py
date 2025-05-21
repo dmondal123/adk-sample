@@ -15,11 +15,29 @@ from subagents.codewriter.agent import code_writer_agent
 from subagents.codereview.agent import code_reviewer_agent
 from subagents.coderefactor.agent import code_refactorer_agent
 
+# Define a function to debug agent context
+def debug_agent_context(callback_context):
+    """Print debug information about the agent context."""
+    agent_name = getattr(callback_context, "agent_name", "Unknown")
+    print(f"\n[debug_agent_context] Invoking agent: {agent_name}")
+    
+    # Get and log the state before agent runs
+    invocation_context = getattr(callback_context, "_invocation_context", None)
+    session = getattr(invocation_context, "session", None) if invocation_context else None
+    
+    if session and hasattr(session, "state"):
+        print(f"[debug_agent_context] Session state before {agent_name}: {session.state}")
+    else:
+        print(f"[debug_agent_context] No session state found for {agent_name}")
+    
+    return None  # Always continue with the agent execution
+
 code_pipeline_agent = SequentialAgent(
     name="CodePipelineAgent",
     sub_agents=[code_writer_agent, code_reviewer_agent, code_refactorer_agent],
     description="Executes a sequence of code writing, reviewing, and refactoring.",
-    # The agents will run in the order provided: Writer -> Reviewer -> Refactorer
+    # Add debug callback to monitor which agents are called
+    before_agent_callback=debug_agent_context
 )
 
 # For ADK tools compatibility, the root agent must be named `root_agent`
@@ -51,6 +69,20 @@ async def main():
         role='user', parts=[types.Part.from_text(text=new_message)]
     )
     print('** User says:', content.model_dump(exclude_none=True))
+    
+    # Track the current prompt in session state to enable resumption
+    if session.state is None:
+      session.state = {}
+    
+    # Save the current prompt in the session state
+    if "current_prompt" not in session.state:
+      session.state["current_prompt"] = new_message
+      # Update the session with the new state
+      # Don't use update_session since it doesn't exist
+      # Instead, we'll rely on the fact that session state changes are automatically persisted
+      # when the runner.run_async() method completes
+      print(f"** Saved current prompt to session: {new_message}")
+    
     async for event in runner.run_async(
         user_id=user_id_1,
         session_id=session.id,
@@ -115,22 +147,32 @@ async def main():
   print(f"Session state: {session_1.state if hasattr(session_1, 'state') else 'None'}")
   print('-------------------------------------------------------------------')
   
-  # Run or resume the prompt processing
-  # The SequentialAgent will automatically handle which subagents have already 
-  # completed and only run those that haven't finished
-  session_1 = await run_prompt(
-      session_1, 'Write a python function to do quicksort.'
-  )
+  # Define prompts to process
+  prompts = [
+    "Write a python function to do quicksort.",
+    "Write another python function to do bubble sort."
+  ]
   
-  # Add a second task when ready to move on
-  prompt_2 = 'Write another python function to do bubble sort.'
+  # Process all prompts sequentially - the SequentialAgent will automatically
+  # handle which agents have run and where to resume thanks to the session state
+  for prompt in prompts:
+    try:
+      print(f"\n{'='*70}")
+      print(f"Processing prompt: {prompt}")
+      print(f"{'='*70}\n")
+      
+      session_1 = await run_prompt(session_1, prompt)
+      
+      print(f"\n{'='*70}")
+      print(f"Prompt completed: {prompt}")
+      print(f"{'='*70}\n")
+    except Exception as e:
+      print(f"\nError processing prompt '{prompt}': {e}")
+      print("Session is saved. Restart the script to resume from this point.")
+      break
+  
   print('-------------------------------------------------------------------')
-  print(f"Running next task: {prompt_2}")
-  print('-------------------------------------------------------------------')
-  session_1 = await run_prompt(
-      session_1, prompt_2
-  )
-  print('-------------------------------------------------------------------')
+  print("All prompts processed successfully.")
 
 
 if __name__ == '__main__':
