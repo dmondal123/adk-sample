@@ -111,12 +111,25 @@ async def main():
       print(f"Error creating session: {e2}")
       raise
 
+  print('-------------------------------------------------------------------')
+  print(f"Session state: {session_1.state if hasattr(session_1, 'state') else 'None'}")
+  print('-------------------------------------------------------------------')
+  
+  # Run or resume the prompt processing
+  # The SequentialAgent will automatically handle which subagents have already 
+  # completed and only run those that haven't finished
   session_1 = await run_prompt(
       session_1, 'Write a python function to do quicksort.'
   )
-  #session_1 = await run_prompt(
-  #    session_1, 'Write another python function to do bubble sort.'
-  #)
+  
+  # Add a second task when ready to move on
+  prompt_2 = 'Write another python function to do bubble sort.'
+  print('-------------------------------------------------------------------')
+  print(f"Running next task: {prompt_2}")
+  print('-------------------------------------------------------------------')
+  session_1 = await run_prompt(
+      session_1, prompt_2
+  )
   print('-------------------------------------------------------------------')
 
 
