@@ -147,32 +147,41 @@ async def main():
   print(f"Session state: {session_1.state if hasattr(session_1, 'state') else 'None'}")
   print('-------------------------------------------------------------------')
   
-  # Define prompts to process
-  prompts = [
-    "Write a python function to do quicksort.",
-    "Write another python function to do bubble sort."
-  ]
+  # Interactive prompt loop instead of predefined prompts
+  print("\nWelcome to the Code Pipeline Agent!")
+  print("Type 'exit' or 'quit' to end the session.")
   
-  # Process all prompts sequentially - the SequentialAgent will automatically
-  # handle which agents have run and where to resume thanks to the session state
-  for prompt in prompts:
+  while True:
     try:
+      # Get user input
+      user_prompt = input("\nEnter your prompt > ")
+      
+      # Check for exit command
+      if user_prompt.lower() in ['exit', 'quit']:
+        print("Exiting session...")
+        break
+      
+      if not user_prompt.strip():
+        print("Please enter a valid prompt.")
+        continue
+      
       print(f"\n{'='*70}")
-      print(f"Processing prompt: {prompt}")
+      print(f"Processing prompt: {user_prompt}")
       print(f"{'='*70}\n")
       
-      session_1 = await run_prompt(session_1, prompt)
+      # Process the user prompt
+      session_1 = await run_prompt(session_1, user_prompt)
       
       print(f"\n{'='*70}")
-      print(f"Prompt completed: {prompt}")
+      print(f"Prompt completed: {user_prompt}")
       print(f"{'='*70}\n")
+      
     except Exception as e:
-      print(f"\nError processing prompt '{prompt}': {e}")
-      print("Session is saved. Restart the script to resume from this point.")
-      break
+      print(f"\nError processing prompt: {e}")
+      print("Session is saved. You can continue with another prompt or restart the script.")
   
   print('-------------------------------------------------------------------')
-  print("All prompts processed successfully.")
+  print("Session ended.")
 
 
 if __name__ == '__main__':
