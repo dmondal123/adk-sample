@@ -34,6 +34,7 @@ from google.genai import types
 async def main():
   app_name = 'my_app'
   user_id_1 = 'user1'
+  session_id = 'code_pipeline_session'
   
   # Create a database session service with the SQLite DB file in the current directory
   db_url = "sqlite:///./code_pipeline.db"  # one tiny file next to this script
@@ -81,30 +82,41 @@ async def main():
 
   # Try to get an existing session or create a new one if it doesn't exist
   try:
-    session_1 = runner.session_service.get_sessions(
-        app_name=app_name, user_id=user_id_1
+    session_1 = runner.session_service.get_session(
+        app_name=app_name, user_id=user_id_1, session_id=session_id
     )
     if session_1:
-      session_1 = session_1[0]  # Use the most recent session
+      # The session object is already a single Session, no need to access with [0]
       print(f'----Resuming existing session: {session_1.id} ----------------------')
     else:
       session_1 = runner.session_service.create_session(
-          app_name=app_name, user_id=user_id_1
+          app_name=app_name, user_id=user_id_1, session_id=session_id
       )
       print(f'----Created new session: {session_1.id} ----------------------')
   except Exception as e:
     print(f"Error retrieving session: {e}")
-    session_1 = runner.session_service.create_session(
-        app_name=app_name, user_id=user_id_1
-    )
-    print(f'----Created new session: {session_1.id} ----------------------')
+    # Check if the session already exists before trying to create it
+    try:
+      session_1 = runner.session_service.get_session(
+          app_name=app_name, user_id=user_id_1, session_id=session_id
+      )
+      if session_1:
+        print(f'----Found existing session: {session_1.id} ----------------------')
+      else:
+        session_1 = runner.session_service.create_session(
+            app_name=app_name, user_id=user_id_1, session_id=session_id
+        )
+        print(f'----Created new session: {session_1.id} ----------------------')
+    except Exception as e2:
+      print(f"Error creating session: {e2}")
+      raise
 
   session_1 = await run_prompt(
       session_1, 'Write a python function to do quicksort.'
   )
-  session_1 = await run_prompt(
-      session_1, 'Write another python function to do bubble sort.'
-  )
+  #session_1 = await run_prompt(
+  #    session_1, 'Write another python function to do bubble sort.'
+  #)
   print('-------------------------------------------------------------------')
 
 
